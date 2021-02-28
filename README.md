@@ -1,37 +1,30 @@
 # C code for STM32 microcontroller unit
 Microcontroller code based mainly on HAL library. Main purpose of this code was providing data from sensors, i.e. collecting data in proper moment, processing data and storing them in proper HTTP request.
 
-## Usage
+<img alt="C" src="https://img.shields.io/badge/c%20-%2300599C.svg?&style=for-the-badge&logo=c&logoColor=white"/>
 
-### Choose between CPU and GPU calculation
-Below line of code lets you choose used processing unit, comment it to use GPU.
-```
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-```
+## Main parts of software
 
-### training_app.py
-Artificial neural network architecture and training process.
+### Interruptions
+Whole program uses timer interrupts as a base for every operation. Everything is handled with the use of flags.
 
-### testing_app.py
-Script used to verify neural network effectiveness on the test dataset.
+### Communication with sensors
+Digital sensors are connected via UART interface, so in functions there is code providing collecting and processing data.
 
-### classify.py
-Main script used to show neural network predictions on given images. Image should be given as path, without any quotation marks and apostrophes.
+### ADC usage
+For analog sensor code provides ADC handling and proper calculations.
 
-![classify](https://user-images.githubusercontent.com/48838669/84918313-bb408a80-b0c0-11ea-921d-22909eec8dbc.png)
+### Server connection
+As the collected data should be sent on server, code responsible for getting data is merged with the code handling A9G module (GSM and GPS). The code for A9g module is provided by Wojciech Stróżecki.
 
-## Anaconda packages being used
-* numpy 1.18.1
-* matplotlib 3.1.3
-* opencv 3.4.2
-* tensorflow 2.1.0
-* tqdm 4.46.0
-* tabulate 0.8.3
-* 
+### Hardware
+This repository consists of code only. The hardware part is described in thesis.
+
 ## Credits
-The project has been developed by:
-- [Michał Kliczkowski](https://github.com/michal090497)
-- [Tomasz Jankowski](https://github.com/tomasz-jankowski)
+* Michał Kliczkowski - STM32 development
+* Tomasz Jankowski - web application
+* Wojciech Stróżecki - A9G development
+* prof. dr hab. inż. Adam Dąbrowski - conceptual support and funding
 
 ## License
  
