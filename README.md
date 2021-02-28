@@ -2,6 +2,7 @@
 Microcontroller code based mainly on HAL library. Main purpose of this code was providing data from sensors, i.e. collecting data in proper moment, processing data and storing them in proper HTTP request.
 
 <img alt="C" src="https://img.shields.io/badge/c%20-%2300599C.svg?&style=for-the-badge&logo=c&logoColor=white"/>
+<img alt="C++" src="https://img.shields.io/badge/c++%20-%2300599C.svg?&style=for-the-badge&logo=c%2B%2B&ogoColor=white"/>
 
 ## Main parts of software
 
