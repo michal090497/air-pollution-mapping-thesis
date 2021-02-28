@@ -5,6 +5,7 @@ Microcontroller code based mainly on HAL library. Main purpose of this code was 
 <img alt="C++" src="https://img.shields.io/badge/c++%20-%2300599C.svg?&style=for-the-badge&logo=c%2B%2B&ogoColor=white"/>
 
 ## Main parts of software
+Main part of prepared code is loccated in src/main.c
 
 ### Interruptions
 Whole program uses timer interrupts as a base for every operation. Everything is handled with the use of flags.
