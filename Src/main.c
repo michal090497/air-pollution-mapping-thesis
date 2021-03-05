@@ -59,39 +59,38 @@ UART_HandleTypeDef huart6;
 
 /* USER CODE BEGIN PV */
 
+// variables and structs used in program
+
 uint8_t start_pm[] = {0x7E, 0x00, 0x00, 0x02, 0x01, 0x03, 0xF9, 0x7E};
 uint8_t stop_pm[] = {0x7E, 0x00, 0x01, 0x00, 0xFE, 0x7E};
 uint8_t receive_pm[] = {0x7E, 0x00, 0x03, 0x00, 0xFC, 0x7E};
 
-uint8_t odb1_pm[100];
-uint8_t odb2_pm[100];
+uint8_t rec1_pm[100];
+uint8_t rec2_pm[100];
 uint8_t received_data_pm[100];
 
 char so2_command[]={'c'};
 uint8_t so2_received[60];
 uint8_t so2_rest[5];
 
-int so2_flaga=0;
-int czy_przetwarzac_so2=0;
-int so2_czy_odbierac=0;
-int licznik=0;
-int licznik2=0;
-char wyniki[150];
+int so2_flag=0;
+int to_process_so2=0;
+int rec_so2=0;
 char so2_toppb[10];
-int czy_minus=0;
+int is_minus=0;
 int so2_ppb=0;
 int tocalc_so2ppb=0;
-int so2_wyniki[40];
-int licznik_wyniki=0;
-int flaga_pomiar_so2=1;
-int licznik_pomiar_so2=0;
-int tablica_pomiar_so2[10];
-int licz_got_pom=0;
-float gotowe_pomiary_so2[180];
+int so2_results[40];
+int counter_results=0;
+int flag_measurement_so2=1;
+int counter_measurement_so2=0;
+int table_measurement_so2[10];
+int counter_ready_measurement=0;
+float ready_measurement_so2[180];
 
-int flaga_pm=0;
-int flaga2_pm=0;
-int odbierz_pm=0;
+int flag_pm=0;
+int flag2_pm=0;
+int receive_pm=0;
 uint8_t to_pm_1[4];
 float pm_1=0;
 uint8_t to_pm_25[4];
@@ -101,18 +100,15 @@ float pm_4=0;
 uint8_t to_pm_10[4];
 float pm_10=0;
 
-uint8_t less_see[300];
-
-
 float tab_test_pm1[180];
 float tab_test_pm25[180];
 float tab_test_pm4[180];
 float tab_test_pm10[180];
 float tab_test_hcho[180];
-int licz_test_pm=0;
-int licz_hcho=0;
+int counter_test_pm=0;
+int counter_hcho=0;
 int aaa=0;
-int flaga_zegar=1;
+int clock_flag=1;
 
 int size_pm1=0;
 int size_pm25=0;
@@ -130,7 +126,7 @@ char packet_tosend[250];
 int cplt_size=0;
 int to_prep=0;
 float tmp=0;
-uint16_t pomiarADC;
+uint16_t ADC_measurement;
 float R0=11.98;
 float Rs;
 float hcho;
@@ -140,8 +136,7 @@ int offset_pm25=0;
 int offset_pm4=0;
 int offset_pm10=0;
 
-int awaryjne_wysylanie=0;
-char awaryjny_pakiet[120];
+int alternative_send=0;
 
 char rest_pm[5];
 int to_rest_pm=0;
@@ -151,15 +146,14 @@ int if_received=0;
 int if_send_pm=0;
 int start1=0;
 int stop2=0;
-int flaga_pom=0;
+int flag_help_pm=0;
 bool GPS_data_Rx_flag = false;
 
 
 
-#define TrescLen 420
+#define message_length 420
 struct AtComScript{
-	char Tresc[TrescLen];
-	//char Odpowiedz[10];
+	char message[message_length];
 	uint8_t WaitTime;
 };
 
@@ -193,12 +187,12 @@ char GPS_prefix[6];//={'$','G','N','M','R','C'};
 #define GPS_post_ready_size 82
 #define Post_Length 333
 char Post_Request[Post_Length];
-int Ktora_linia=0;
-int pom_gps=0;
-int czy_odbierac_gps=0;
+int which_line=0;
+int flag_gps=0;
+int to_receive_gps=0;
 
-int licznik_odp_so2=0;
-int czy_dostaje_so2=0;
+int counter_answers_so2=0;
+int is_receiving_so2=0;
 
 //extern uint32_t rtc_time;
 
@@ -220,50 +214,51 @@ static void MX_USART6_UART_Init(void);
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	if(flaga_zegar==1)
+	// trigger flags to receive and process data
+	if(clock_flag==1)
 	{
-		flaga_zegar=0;
-		//tocalc_so2ppb=1;
-		czy_przetwarzac_so2=1;
-		flaga_pm=1;
-		if(licznik_odp_so2>=1 && czy_dostaje_so2==0)
+		clock_flag=0;
+		to_process_so2=1;
+		flag_pm=1;
+		if(counter_answers_so2>=1 && is_receiving_so2==0)
 		{
 			HAL_UART_Transmit(&huart4, so2_command, 1, 1000);
 		}
-		licznik_pomiar_so2++;
+		counter_measurement_so2++;
 	}
-	else if(flaga2_pm==1)
+	else if(flag2_pm==1)
 	{
-		flaga_pm=0;
-		odbierz_pm=1;
-		flaga_zegar=1;
-		if(licznik_odp_so2>=1 && czy_dostaje_so2==0)
+		flag_pm=0;
+		receive_pm=1;
+		clock_flag=1;
+		if(counter_answers_so2>=1 && is_receiving_so2==0)
 		{
 			HAL_UART_Transmit(&huart4, so2_command, 1, 1000);
 		}
-		licznik_pomiar_so2++;
+		counter_measurement_so2++;
 	}
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
+	// receiving data from pm sensor
 	if(huart->Instance==USART1)
 	{
 		if(stop1==1)
 		{
-			HAL_UART_Receive_IT(&huart1, odb2_pm, 7);
+			HAL_UART_Receive_IT(&huart1, rec2_pm, 7);
 		}
 		if(stop2==1)
 		{
-			HAL_UART_Receive_IT(&huart1, odb2_pm, 7);
+			HAL_UART_Receive_IT(&huart1, rec2_pm, 7);
 		}
 		if(start1==1)
 		{
-			HAL_UART_Receive_IT(&huart1, odb1_pm, 7);
+			HAL_UART_Receive_IT(&huart1, rec1_pm, 7);
 		}
-		if(flaga_pom==1)
+		if(flag_help_pm==1)
 		{
-			flaga_pom=0;
+			flag_help_pm=0;
 			HAL_UART_Receive_IT(&huart1, received_data_pm, 47);
 		}
 
@@ -272,6 +267,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+	// handling incoming data and setting flags for pm sensor
 	if(huart->Instance==USART1)
 	{
 		if(stop1==1)
@@ -300,7 +296,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		else if(to_rest_pm==1 && rest_pm[0]==0x7E)
 		{
 			to_rest_pm=0;
-			//if_received=1;
 			stop2=1;
 			HAL_UART_Transmit_IT(&huart1, stop_pm, 6);
 			to_proc_pm=1;
@@ -308,22 +303,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		else
 		{
 			to_rest_pm=0;
-			//if_received=1;
 			stop2=1;
 			HAL_UART_Transmit_IT(&huart1, stop_pm, 6);
 			to_proc_pm=1;
 		}
 	}
 
+	// handling incoming data and setting flags for sulfur dioxide sensor
 	if(huart->Instance==UART4)
 	{
-		so2_flaga=1;
-		czy_dostaje_so2=1;
-		if(so2_czy_odbierac==1)
+		so2_flag=1;
+		is_receiving_so2=1;
+		if(rec_so2==1)
 		{
 			if(so2_rest[0]=='\n')
 			{
-				so2_czy_odbierac=0;
+				rec_so2=0;
 				so2_rest[0]='\0';
 				tocalc_so2ppb=1;
 				HAL_UART_Receive_IT(&huart4, so2_received, 60);
@@ -333,38 +328,41 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				HAL_UART_Receive_IT(&huart4, so2_rest, 1);
 			}
 		}
-		else if(so2_received[59]!='\n' && so2_czy_odbierac==0)
+		else if(so2_received[59]!='\n' && rec_so2==0)
 		{
-			so2_czy_odbierac=1;
+			rec_so2=1;
 			HAL_UART_Receive_IT(&huart4, so2_rest, 1);
 		}
 	}
+	// handling data from gps
   if(huart == &huart6)
   {
 	  GPS_data_Rx_flag = true;
-	  czy_odbierac_gps=1;
+	  to_receive_gps=1;
 	  strcpy(GPS_data, &GPS_Rx);
   }
 
 }
 
+// if internet connection isn't available
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     HAL_GPIO_TogglePin( LD2_GPIO_Port, LD2_Pin);
-    awaryjne_wysylanie=1;
+    alternative_send=1;
 }
 
-char check_special_sign(char znak)
+// checking if pm sensor sent one of special signs
+char check_special_sign(char sign)
 {
-	if(znak==0x5E)
+	if(sign==0x5E)
 	{
 		return 0x7E;
 	}
-	else if(znak==0x5D)
+	else if(sign==0x5D)
 	{
 		return 0x7D;
 	}
-	else if(znak==0x31)
+	else if(sign==0x31)
 	{
 		return 0x11;
 	}
@@ -374,69 +372,67 @@ char check_special_sign(char znak)
 	}
 }
 
-
+// calculate ppb for so2
 int get_ppb(char tab[])
 {
 	so2_ppb=0;
 	if(tab[14]=='-')
 	{
-		czy_minus=1;
+		is_minus=1;
 	}
-	int licz=0;
-	for(int i=14+czy_minus;i<20;i++)
+	int cnt=0;
+	for(int i=14+is_minus;i<20;i++)
 	{
 		if(tab[i]!=',')
 		{
-			so2_toppb[licz]=tab[i];
-			licz++;
+			so2_toppb[cnt]=tab[i];
+			cnt++;
 		}
 		else
 		{
 			break;
 		}
 	}
-	for(int i=0;i<licz;i++)
+	for(int i=0;i<cnt;i++)
 	{
 		int a = so2_toppb[i]-48;
-		for(int j=licz-i-1;j>0;j--)
+		for(int j=cnt-i-1;j>0;j--)
 		{
 			a*=10;
 		}
 		so2_ppb+=a;
 	}
-	if(czy_minus==1)
+	if(is_minus==1)
 	{
-		czy_minus=0;
+		is_minus=0;
 		so2_ppb*=-1;
 	}
-	if(flaga_pomiar_so2==1 && licznik_pomiar_so2<10)
+	if(flag_measurement_so2==1 && counter_measurement_so2<10)
 	{
-		tablica_pomiar_so2[licznik_pomiar_so2]+=so2_ppb;
-		licznik_pomiar_so2++;
+		table_measurement_so2[counter_measurement_so2]+=so2_ppb;
+		counter_measurement_so2++;
 	}
-	else if(flaga_pomiar_so2==1 && licznik_pomiar_so2==10)
+	else if(flag_measurement_so2==1 && counter_measurement_so2==10)
 	{
-		//flaga_pomiar_so2=0;
-		licznik_pomiar_so2=0;
+		counter_measurement_so2=0;
 		for(int i=0;i<10;i++)
 		{
-			gotowe_pomiary_so2[licz_got_pom]+=tablica_pomiar_so2[i];
-			tablica_pomiar_so2[i]=0;
+			ready_measurement_so2[counter_ready_measurement]+=table_measurement_so2[i];
+			table_measurement_so2[i]=0;
 		}
-		gotowe_pomiary_so2[licz_got_pom]/=1000.0;
-		//tmp=gotowe_pomiary_so2[licz_got_pom];
-		licz_got_pom++;
-		czy_przetwarzac_so2=0;
-		if(licz_got_pom==180)
+		ready_measurement_so2[counter_ready_measurement]/=1000.0;
+		counter_ready_measurement++;
+		to_process_so2=0;
+		if(counter_ready_measurement==180)
 		{
-			licz_got_pom=0;
+			counter_ready_measurement=0;
 		}
 	}
-	//so2_wyniki[licznik_wyniki]=so2_ppb;
-	licznik_wyniki++;
+	counter_results++;
 	return so2_ppb;
 }
 
+// convert IEE754 to floats
 void get_pm_1(uint8_t tab[])
 {
 	pm_1=0;
@@ -445,8 +441,7 @@ void get_pm_1(uint8_t tab[])
 	int mantissa = (aaa & 0x7FFFFF) | 0x800000;
 	int exp = ((aaa >> 23) & 0xFF) - 127 - 23;
 	pm_1 = mantissa * pow(2.0, exp);
-	tab_test_pm1[licz_test_pm]=pm_1;
-	//int b=8;
+	tab_test_pm1[counter_test_pm]=pm_1;
 }
 void get_pm_25(uint8_t tab[])
 {
@@ -458,8 +453,7 @@ void get_pm_25(uint8_t tab[])
 	int exp = ((aaa >> 23) & 0xFF) - 127 - 23;
 	tmp = mantissa * pow(2.0, exp);
 	pm_25=tmp-pm_1;
-	tab_test_pm25[licz_test_pm]=pm_25;
-	//int b=8;
+	tab_test_pm25[counter_test_pm]=pm_25;
 }
 void get_pm_4(uint8_t tab[])
 {
@@ -471,8 +465,7 @@ void get_pm_4(uint8_t tab[])
 	int exp = ((aaa >> 23) & 0xFF) - 127 - 23;
 	tmp = mantissa * pow(2.0, exp);
 	pm_4=tmp-pm_25-pm_1;
-	tab_test_pm4[licz_test_pm]=pm_4;
-	//int b=8;
+	tab_test_pm4[counter_test_pm]=pm_4;
 }
 void get_pm_10(uint8_t tab[])
 {
@@ -484,19 +477,19 @@ void get_pm_10(uint8_t tab[])
 	int exp = ((aaa >> 23) & 0xFF) - 127 - 23;
 	tmp = mantissa * pow(2.0, exp);
 	pm_10=tmp-pm_4-pm_25-pm_1;
-	tab_test_pm10[licz_test_pm]=pm_10;
-	licz_hcho=licz_test_pm;
-	licz_test_pm++;
-	if(licz_test_pm==180)
+	tab_test_pm10[counter_test_pm]=pm_10;
+	counter_hcho=counter_test_pm;
+	counter_test_pm++;
+	if(counter_test_pm==180)
 	{
-		licz_test_pm=0;
+		counter_test_pm=0;
 	}
-	//int b=8;
 }
 
+// functions for sending commands
 void send_stop_pm1()
 {
-	flaga2_pm=1;
+	flag2_pm=1;
 	stop1=1;
 	HAL_UART_Transmit_IT(&huart1, stop_pm, 6);
 }
@@ -507,33 +500,25 @@ void send_stop_pm2()
 	HAL_UART_Transmit_IT(&huart1, stop_pm, 6);
 }
 
-void wyslij_pm()
+void send_pm()
 {
-	  flaga2_pm=1;
+	  flag2_pm=1;
 	  start1=1;
 	  HAL_UART_Transmit_IT(&huart1, start_pm, 8);
-
-	  //HAL_UART_Receive(&huart1, odb1_pm, 10,200);
-
-	  //HAL_Delay(10000);
-
 
 }
 
 void get_pm()
 {
-	  odbierz_pm=0;
-	  flaga_pom=1;
+	  receive_pm=0;
+	  flag_help_pm=1;
 	  HAL_UART_Transmit_IT(&huart1, receive_pm, 6);
-	  //HAL_UART_Receive_IT(&huart1, received_data_pm, 47);
-
 
 }
 
+// processing data received from pm and hcho sensors
 void process_pm()
 {
-	  //HAL_UART_Transmit(&huart1, stop_pm, 6,200);
-	  //HAL_UART_Receive(&huart1, odb2_pm, 10,200);
 
 	  offset_pm1=0;
 	  offset_pm25=0;
@@ -598,21 +583,16 @@ void process_pm()
 	  get_pm_10(to_pm_10);
 	  HAL_ADC_Start(&hadc1);
 	  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-	   pomiarADC = HAL_ADC_GetValue(&hadc1);
-	   //R0=(3722.727/pomiarADC)-1;
-	   Rs=(3722.727/pomiarADC)-1;
+	   ADC_measurement = HAL_ADC_GetValue(&hadc1);
+	   Rs=(3722.727/ADC_measurement)-1;
 	   hcho=pow(10.0,((log10(Rs/R0)-0.0827)/(-0.4807)));
-	   tab_test_hcho[licz_hcho]=hcho;
-	   //HAL_ADC_Start(&hadc1);
+	   tab_test_hcho[counter_hcho]=hcho;
 	   }
 	  to_prep=1;
 
-	  /*for(int i=0;i<50;i++)
-	  {
-		  received_data_pm[i]=0;
-	  }*/
 }
 
+// prepare packet that consists of data required by server which is ready to be sent
 void prepare_packet()
 {
 	tmp=0;
@@ -633,24 +613,23 @@ void prepare_packet()
 	size_pm25= sprintf(pm25_tosend,"%.2f", pm_25);
 	size_pm4= sprintf(pm4_tosend,"%.2f", pm_4);
 	size_pm10= sprintf(pm10_tosend,"%.2f", pm_10);
-	tmp=gotowe_pomiary_so2[licz_got_pom-1];
+	tmp=ready_measurement_so2[counter_ready_measurement-1];
 	size_so2= sprintf(so2_tosend,"%.2f", tmp);
 	size_hcho= sprintf(hcho_tosend,"%.2f", hcho);
 
-	//58
 	cplt_size=149+size_pm1+size_pm25+size_pm4+size_pm10+size_so2+size_hcho;
 	sprintf(size_msg, "%d",cplt_size);
 
 	strcat(packet_tosend, "\r\n\r\n{\"gps\":\"");
 	//strcat(packet_tosend, "$GNRMC,030232.000,A,5223.6457,N,1656.9179,E,2.895,96.40,060120,,,A*7A,aaaaa");
-	pom_gps=1;
-	if(pom_gps==0)
+	flag_gps=1;
+	if(flag_gps==0)
 	{
 		strcat(packet_tosend, GPS_post_ready);
 	}
-	else if(pom_gps==1)
+	else if(flag_gps==1)
 	{
-		pom_gps=0;
+		flag_gps=0;
 		strcat(packet_tosend, "$GNRMC,030232.000,A,5223.6457,N,1656.9179,E,2.895,96.40,060120,,,A*7A,aaaaaaaaaaaa");
 	}
 	strcat(packet_tosend, "\",\"pm1\":\"");
@@ -668,44 +647,42 @@ void prepare_packet()
 	strcat(packet_tosend,"\"}");
 }
 
-void wyslij_awaryjny_pakiet()
+void send_alternative_packet()
 {
 	tmp=0;
 
-	//memset(packet_tosend,0,250);
-
 	prepare_packet();
-	//HAL_UART_Transmit();
 
 }
 
-void Rst_button_press (){// Funkcja imitująca wciśnięcie "soft reset" na płytce A9G
+// immitating ,,soft reset" of A9G
+void Rst_button_press (){
 	  HAL_GPIO_WritePin(RST_GPIO_GPIO_Port, RST_GPIO_Pin, GPIO_PIN_RESET);
 	  HAL_Delay(3000);
 	  HAL_GPIO_WritePin(RST_GPIO_GPIO_Port, RST_GPIO_Pin, GPIO_PIN_SET);
 	  HAL_Delay(30000);
 }
 
+// providing connection to internet
 void get_connection()
 {
-	int liczniczek=0;
-	while(liczniczek<=10){
+	int cnt_gc=0;
+	while(cnt_gc<=10){
 		for(int i=0;i<100;i++)
 		{
 			test_connection[i]=0;
 		}
-		HAL_UART_Transmit(&huart3, GetConnection[liczniczek].Tresc,  strlen(GetConnection[liczniczek].Tresc), GetConnection[liczniczek].WaitTime*1000);
-		//HAL_Delay(GetConnection[liczniczek].WaitTime*1000);
-		HAL_UART_Receive(&huart3, test_connection, 100, GetConnection[liczniczek].WaitTime*1000);
-		liczniczek++;
+		HAL_UART_Transmit(&huart3, GetConnection[cnt_gc].message,  strlen(GetConnection[cnt_gc].message), GetConnection[cnt_gc].WaitTime*1000);
+		HAL_UART_Receive(&huart3, test_connection, 100, GetConnection[cnt_gc].WaitTime*1000);
+		cnt_gc++;
 	}
 
-	HAL_UART_Transmit(&huart3, GetConnection[11].Tresc,  strlen(GetConnection[11].Tresc), GetConnection[11].WaitTime*1000);
+	HAL_UART_Transmit(&huart3, GetConnection[11].message,  strlen(GetConnection[11].message), GetConnection[11].WaitTime*1000);
 	HAL_UART_Receive(&huart3, test_connection, 100, 5000);
-	//HAL_UART_Receive(&huart3, test_connection, 8, GetConnection[11].WaitTime*1000);
 }
 
-void Find_nmea (){ //funkcja odpowiedzialna za znajdowanie odpowiedniego ciągu charów zawierającego informacje o lokalizacji i czasie w formaice NMEA w ramce GPS
+// function that finds proper strings indicating NMEA format in GPS data
+void Find_nmea (){
 	  char INPUT_prefix[6];
 	  strcpy(INPUT_prefix, "BEDOES");
 
@@ -738,10 +715,11 @@ void Find_nmea (){ //funkcja odpowiedzialna za znajdowanie odpowiedniego ciągu 
 	  GPS_post_end_flag = true;
 }
 
-void Post_Rq_Merge(){ //funkcja w ktorej tworzona jest treść post requesta
+// merge data with server info to prepare whole post request
+void Post_Rq_Merge(){
 
 
-	memset(Post_Request, 0, Post_Length); //wyzerowanie
+	memset(Post_Request, 0, Post_Length);
 	strcat(Post_Request, "POST / HTTP/1.1\r\nHost:www.tomaszjankowski.atthost24.pl\r\nContent-Type:application/json\r\nContent-Length:");
 	strcat(Post_Request, size_msg);
 	strcat(Post_Request, "\r\nAuthorization: Basic ZHJvbmUwMTo4Yjc4MWE1ZA==");
@@ -751,51 +729,52 @@ void Post_Rq_Merge(){ //funkcja w ktorej tworzona jest treść post requesta
 	//strcat(Post_Request, "\",\"pm1\":\"1\",\"pm25\":\"2\",\"pm4\":\"3\",\"pm10\":\"4\",\"so2\":\"5\",\"hcho\":\"6\"}\r\n\r\n\r\n\032\r\n");
 }
 
+// 
 void Transmit_AtComScript (struct AtComScript Script[], uint8_t Script_Length)
 {
-	if(Ktora_linia==1)
+	if(which_line==1)
 	{
 		if(GPS_data_Rx_flag == true)
 		{
 			GPS_data_Rx_flag=false;
-			pom_gps=0;
+			flag_gps=0;
 			Find_nmea();
 		}
 		else
 		{
 			//strcat(GPS_post_ready, "$GNRMC,030232.000,A,5223.6457,N,1656.9179,E,2.895,96.40,060120,,,A*7A,aaaaa");
-			pom_gps=1;
+			flag_gps=1;
 		}
-		if(czy_odbierac_gps==1)
+		if(to_receive_gps==1)
 		{
 			HAL_UART_Receive_IT(&huart6, GPS_Rx, GPS_data_size);
-			czy_odbierac_gps=0;
+			to_receive_gps=0;
 		}
 
 		  prepare_packet();
-		  Post_Rq_Merge(); //stworzenie post request z aktualnymi danymi
-		  memset(SendPost[1].Tresc, 0, TrescLen);
-		  strcpy(SendPost[1].Tresc, Post_Request); //umieszczenie nowego Post Requesta w odpowiednim miejscu w skrypcie AT SendPost
+		  Post_Rq_Merge();
+		  memset(SendPost[1].message, 0, message_length);
+		  strcpy(SendPost[1].message, Post_Request); // putting new post request in proper location of AT SendPost
 		  //HAL_UART_Receive(&huart3, test_connection, 20, 100);
 
 	}
 
-	int Msg_Length = strlen(Script[Ktora_linia].Tresc);
+	int Msg_Length = strlen(Script[which_line].message);
 	char Msg[Msg_Length];
 
-	strcpy(Msg, Script[Ktora_linia].Tresc);
-	Ktora_linia++;
+	strcpy(Msg, Script[which_line].message);
+	which_line++;
 
-	if(Ktora_linia >= Script_Length){ //gdy przejdzie do ostatniej linii kodu to wyrzuca flage i przejdzie do nastepnej flaggi
-		Ktora_linia=0;
+	if(which_line >= Script_Length){ // checking which line is being processed, returns flag if finished
+		which_line=0;
 		memset(test_connection,0,100);
 	}
 
 	HAL_UART_Transmit(&huart3, Msg, Msg_Length,600);
-	if(Ktora_linia==0)
+	if(which_line==0)
 	{
 		HAL_UART_Receive(&huart3, test_connection, 100, 5000);
-		Ktora_linia=0;
+		which_line=0;
 	}
 
 
@@ -849,7 +828,6 @@ int main(void)
   MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  //HAL_Delay(5000);
   strcpy(GPS_prefix, "$GNRMC");
   
   HAL_TIM_Base_Start_IT(&htim10);
@@ -858,11 +836,6 @@ int main(void)
   HAL_UART_Receive_IT(&huart4, so2_received, 60);
 
   HAL_UART_Transmit(&huart4, so2_command, 1, 1000);
-	  //HAL_Delay(1800);
-  //}
-
-
-  //prepare_packet();
 
   /* USER CODE END 2 */
 
@@ -870,7 +843,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(tocalc_so2ppb==1 && czy_przetwarzac_so2==1)
+	  if(tocalc_so2ppb==1 && to_process_so2==1)
 	  {
 		  tocalc_so2ppb=0;
 		  get_ppb(so2_received);
@@ -879,19 +852,19 @@ int main(void)
 			  so2_toppb[i]='\0';
 		  }
 	  }
-	  if(flaga_pm==1)
+	  if(flag_pm==1)
 	  {
 		  //tocalc_so2ppb=1;
-		  flaga_pm=0;
+		  flag_pm=0;
 		  send_stop_pm1();
-		  //wyslij_pm();
+		  //send_pm();
 	  }
 	  if(if_send_pm==1)
 	  {
 		  if_send_pm=0;
-		  wyslij_pm();
+		  send_pm();
 	  }
-	  if(odbierz_pm==1)
+	  if(receive_pm==1)
 	  {
 		  get_pm();
 	  }
@@ -900,18 +873,18 @@ int main(void)
 		  to_proc_pm=0;
 		  process_pm();
 	  }
-	  if(to_prep==1/* && czy_przetwarzac_so2==0*/)
+	  if(to_prep==1/* && to_process_so2==0*/)
 	  {
 		  to_prep=0;
 		  //Transmit_AtComScript(SendPost, 2);
 		  //Transmit_AtComScript(SendPost, 2);
-		  wyslij_awaryjny_pakiet();
+		  send_alternative_packet();
 		  HAL_UART_Transmit(&huart2, packet_tosend, 200, 100);
 	  }
-	  if(awaryjne_wysylanie==1)
+	  if(alternative_send==1)
 	  {
-		  awaryjne_wysylanie=0;
-		  wyslij_awaryjny_pakiet();
+		  alternative_send=0;
+		  send_alternative_packet();
 	  }
 
     /* USER CODE END WHILE */
